@@ -1,69 +1,128 @@
-import Link from "next/link";
+"use client";
 
-import { LatestPost } from "~/app/_components/post";
-import { auth } from "~/server/auth";
-import { api, HydrateClient } from "~/trpc/server";
+import { useEffect, useState } from "react";
 
-export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
-  const session = await auth();
+import { EasyGame } from "~/app/_components/verbs/EasyGame";
+import { HardGame } from "~/app/_components/verbs/HardGame";
+import { ScoreBar } from "~/app/_components/verbs/ScoreBar";
+import { type Verb } from "~/app/_components/verbs/types";
+import { loadVerbs } from "~/app/_components/verbs/utils";
 
-  if (session?.user) {
-    void api.post.getLatest.prefetch();
+type Mode = "home" | "easy" | "hard";
+
+type Score = {
+  correct: number;
+  total: number;
+};
+
+export default function Home() {
+  const [mode, setMode] = useState<Mode>("home");
+  const [verbs, setVerbs] = useState<Verb[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [score, setScore] = useState<Score>({ correct: 0, total: 0 });
+
+  useEffect(() => {
+    let active = true;
+    loadVerbs()
+      .then((v) => {
+        if (!active) return;
+        setVerbs(v);
+      })
+      .catch((e: unknown) => {
+        if (!active) return;
+        setError(e instanceof Error ? e.message : "Failed to load verbs");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function resetScore() {
+    setScore({ correct: 0, total: 0 });
+  }
+
+  function goHome() {
+    setMode("home");
   }
 
   return (
-    <HydrateClient>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
+    <main className="min-h-screen bg-gradient-to-b from-[#2e026d] to-[#15162c]">
+      {mode !== "home" && (
+        <ScoreBar
+          modeLabel={mode === "easy" ? "Easy" : "Hard"}
+          score={score}
+          onReset={resetScore}
+          onBack={() => {
+            resetScore();
+            goHome();
+          }}
+        />
+      )}
+
+      {mode === "home" && (
+        <div className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center gap-8 px-4 py-16 text-white">
+          <h1 className="text-center text-4xl font-extrabold tracking-tight sm:text-6xl">
+            Italian Irregular Verbs
           </h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">First Steps →</h3>
-              <div className="text-lg">
-                Just the basics - Everything you need to know to set up your
-                database and authentication.
-              </div>
-            </Link>
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">Documentation →</h3>
-              <div className="text-lg">
-                Learn more about Create T3 App, the libraries it uses, and how
-                to deploy it.
-              </div>
-            </Link>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello ? hello.greeting : "Loading tRPC query..."}
-            </p>
+          <p className="max-w-2xl text-center text-white/70">
+            Learn 20 common irregular verbs through quick rounds. No login, no
+            backend, your score resets when you refresh.
+          </p>
 
-            <div className="flex flex-col items-center justify-center gap-4">
-              <p className="text-center text-2xl text-white">
-                {session && <span>Logged in as {session.user?.name}</span>}
-              </p>
-              <Link
-                href={session ? "/api/auth/signout" : "/api/auth/signin"}
-                className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-              >
-                {session ? "Sign out" : "Sign in"}
-              </Link>
+          {error && (
+            <div className="w-full rounded-xl border border-rose-400/30 bg-rose-400/10 p-4 text-rose-100">
+              {error}
             </div>
+          )}
+
+          <div className="grid w-full gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              className="rounded-2xl border border-white/10 bg-white/5 p-6 text-left transition hover:bg-white/10"
+              onClick={() => {
+                resetScore();
+                setMode("easy");
+              }}
+              disabled={!verbs}
+            >
+              <div className="text-2xl font-bold">Easy</div>
+              <div className="mt-2 text-white/70">
+                Match the six pronouns to the correct conjugations, then answer a
+                multiple-choice meaning question.
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className="rounded-2xl border border-white/10 bg-white/5 p-6 text-left transition hover:bg-white/10"
+              onClick={() => {
+                resetScore();
+                setMode("hard");
+              }}
+              disabled={!verbs}
+            >
+              <div className="text-2xl font-bold">Hard</div>
+              <div className="mt-2 text-white/70">
+                Type the correct conjugation given the English meaning and a
+                pronoun.
+              </div>
+            </button>
           </div>
 
-          {session?.user && <LatestPost />}
+          {!verbs && !error && (
+            <div className="text-sm text-white/60">Loading verbs…</div>
+          )}
         </div>
-      </main>
-    </HydrateClient>
+      )}
+
+      {mode === "easy" && verbs && (
+        <EasyGame verbs={verbs} score={score} setScore={setScore} />
+      )}
+      {mode === "hard" && verbs && (
+        <HardGame verbs={verbs} score={score} setScore={setScore} />
+      )}
+    </main>
   );
 }
