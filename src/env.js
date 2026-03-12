@@ -7,13 +7,12 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
-    AUTH_SECRET:
-      process.env.NODE_ENV === "production"
-        ? z.string()
-        : z.string().optional(),
-    AUTH_DISCORD_ID: z.string(),
-    AUTH_DISCORD_SECRET: z.string(),
-    DATABASE_URL: z.string().url(),
+    // This app is front-end only; auth/database env vars are optional unless you
+    // enable those features elsewhere in the codebase.
+    AUTH_SECRET: z.string().optional(),
+    AUTH_DISCORD_ID: z.string().optional(),
+    AUTH_DISCORD_SECRET: z.string().optional(),
+    DATABASE_URL: z.string().url().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
